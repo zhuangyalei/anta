@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width,user-scalable=no" />
+<meta charset="UTF-8">
+<title>Document</title>
+<style type="text/css">
+body,
+html {
+	margin: 0;
+	height: 100%;
+	position: relative;
+	overflow: hidden;
+	/* 养成习惯页面只有一屏，给body 添加 overflow 和 相对定位 */
+}	
+.wrap {
+	position: relative;
+	height: 100%;
+}
+.view,
+.boxZ,
+.bg {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	-webkit-transform-style: preserve-3d;
+	transform-style: preserve-3d;
+}
+.bg span {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	margin: -585px 0 0 -64.5px;
+	width: 129px;
+	height: 1170px;
+	-webkit-backface-visibility: hidden;
+	backface-visibility: hidden;
+}
+#bg {
+	position: absolute;
+	left: 0;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	background: url(bg/bg.jpg) no-repeat;
+	background-size: cover;
+	opacity: 0;
+}
+</style>
+</head>
+<body>
+<div id="bg"></div>
+<div class="wrap"><!-- 景深 -->
+	<div class="view"> <!-- 把元素和景深贴在一起 -->
+		<div class="boxZ"> <!-- 固定一个观看距离 -->
+			<div class="bg"></div>
+		</div>
+	</div>
+</div>	
+<script type="text/javascript" src="js/m.touch.js"></script>
+<script type="text/javascript">
+/* 3d适配 */
+(function(){
+	var wrap = document.querySelector('.wrap');
+	var view = document.querySelector('.view');
+	var boxZ = document.querySelector('.boxZ');
+	var deg = 52.5;
+	var R =  Math.round(Math.tan(deg*Math.PI/180)*(wrap.clientHeight/2));
+	wrap.style.perspective = wrap.style.WebkitPerspective = R + "px";//设置景深；
+	css(view,"translateZ",R);//设置位移；
+	css(boxZ,"translateZ",-150);
+})();
+/* 生成布局 */
+(function(){
+	var bg = document.querySelector('.bg');
+	var liW = 128;
+	var inner = "";
+	var length = 20;//圆柱形的面数；
+	var deg = 360/length;//外角
+	var innerDeg = (180-deg)/2; //夹角
+	//正切：直角三角形中对边和临边的比值
+	var R = Math.tan(innerDeg*Math.PI/180)*liW/2;
+//	console.log(R); 
+	for(var i = 0; i < length; i++){
+		inner += '<span style="opacity:0;background:url(bg/'+(i+1)+'.png);-webkit-transform:rotateY('+(-i*deg)+'deg) translateZ('+(-R)+'px)"></span>';
+	}
+	bg.innerHTML  =  inner;
+})();
+document.addEventListener('touchstart', function(e) {
+	e.preventDefault();
+});
+//入场动画
+(function(){
+	var bg = document.querySelector('.bg');
+	var pageBg = document.querySelector('#bg');
+	var boxZ = document.querySelector('.boxZ');
+	var span = bg.querySelectorAll('span');
+	var timer = 0; 
+	var now = 0;
+	css(bg,"rotateX",0);
+	css(bg,"rotateY",-792);//旋转两周是720度，第一张图是在正中间，想让它从右边出来，那么需要后退四张图的角度，就是18*4=72，那bg的旋转角度需要再往后退72度，就是792度；
+	css(boxZ,"translateZ",-3000);//把boxZ向后推3000px,初始位置是-3000px,从远及近的效果；
+	startMove({
+		el: boxZ,
+		target: {
+			translateZ: -150//boxZ位移目标值为-150；动画走到眼前；
+		},
+		type: "easeOut",
+		time: 5000
+	});
+	startMove({
+		el: bg,
+		target: {
+			rotateY: 25//rotateY旋转角度目标值为25度；
+		},
+		type: "easeOut",
+		time: 5000,
+		callBack: function(){
+			startMove({
+				el:pageBg,
+				target: {
+					opacity:100//动画结束后，背景显现；
+				},
+				type: 'easeOutStrong',
+				time: 1000
+			});
+			setRotate();//添加旋转拖拽事件；
+		}
+	});
+	timer = setInterval(function(){//设置一个定时器，让20个span背景图一张张展示出来；
+		css(span[now],"opacity",100);
+		now++;
+		if(now >= span.length){
+			clearInterval(timer);
+		}
+	},30);
+})();
+/*
+	添加旋转
+*/	
+function setRotate(){
+	/* 拖拽旋转 */
+	var wrap = document.querySelector('.wrap');
+	var boxZ = document.querySelector('.boxZ');
+	var bg = document.querySelector('.bg');
+	var startPiont = {};
+	var startDeg = {};
+	var scale = {x:90/wrap.clientWidth,y:30/wrap.clientHeight};//每移动1px旋转多少度
+	var lastTime = 0;
+	var lastSpeed = {};
+	var lastDis = {};
+	var isTouch = false;//拖拽和重力感应的开关，默认是false，没有进行拖拽；
+	var startBoxZ = css(boxZ,"translateZ");//获取初始位移值；
+	// css(bg,"rotateX",0);
+	// css(bg,"rotateY",0);
+	bg.addEventListener('touchstart', function(e) {
+		isTouch = true;//手指摁下时，把开关打开，执行滑动；
+		var touch = e.changedTouches[0];
+		startPiont = {x:touch.pageX,y:touch.pageY};
+		startDeg = {x:css(bg,"rotateY"),y:css(bg,"rotateX")};
+		lastSpeed = {x:0,y:0};
+		lastDis = {x:touch.pageX,y:touch.pageY};
+		lastTime = Date.now();
+	});
+	bg.addEventListener('touchmove', function(e) {
+		var touch = e.changedTouches[0];
+		var now = {x:touch.pageX,y:touch.pageY};
+		var dis = {x:now.x - startPiont.x,y:now.y - startPiont.y};
+		var disDeg = {x:dis.x*scale.x,y:dis.y*scale.y};//scale是每px，走了多少度，用差值乘上度数得出差值该走多少度；
+		var nowDeg = {x:startDeg.x - disDeg.x,y:startDeg.y + disDeg.y };
+		css(boxZ,"translateZ",startBoxZ - Math.abs(dis.x));//滑动时，使boxZ向后移动；
+		if(nowDeg.y > 40){//限制范围；
+			nowDeg.y = 40
+		} else if(nowDeg.y < -40){
+			nowDeg.y = -40;
+		}
+		css(bg,"rotateY",nowDeg.x);
+		css(bg,"rotateX",nowDeg.y);
+		var nowTime = Date.now();
+		var timeDis = nowTime - lastTime;//时间差值；
+		lastSpeed = {x:(now.x - lastDis.x)/timeDis,y:(now.y - lastDis.y)/timeDis};//用距离除以时间差值，得出速度；
+		lastDis = {x:now.x,y:now.y};
+		lastTime = nowTime;
+	});
+	bg.addEventListener('touchend', function(e) {
+		var nowTime = Date.now();
+		
+		startMove({
+			el:boxZ,
+			target: {
+				translateZ: startBoxZ//手指抬起时，使boxZ回到初始的translateZ坐标；有一种回弹的效果；
+			},
+			type: "easeOutStrong",
+			time: 1000
+		});
+		if(nowTime - lastTime > 100){//如果停留时间过长，就代表用户按下好久没有移动；抬起时就保留在原地，不再进行缓冲距离计算；
+			return;
+		}
+		var target = {//计算旋转的目标值；
+			rotateX: css(bg,"rotateX") + lastSpeed.y*15,
+			rotateY: css(bg,"rotateY") - lastSpeed.x*15 
+		};
+		if(target.rotateX > 40){//限制范围；
+			target.rotateX = 40
+		} else if(target.rotateX < -40){
+			target.rotateX = -40;
+		}
+		startMove({
+			el: bg,
+			target: target,//让圆柱盒子旋转到目标点；
+			time: 1000,
+			type: "easeOutStrong",
+			callBack: function(){
+				var degY = css(bg,'rotateY')%360;//有可能会转了好几圈，超出360度，对360取模；
+				css(bg,'rotateY',degY);
+				isTouch = false;//拖拽完成后，关闭isTouch,进行重力感应；
+				console.log(1);
+			}
+		});
+	});
+
+	var lastDeviceTime = 0;
+	var startDeviceDeg = {};
+	var startBgDeg = {};
+	window.addEventListener('deviceorientation', function(e) {
+		if(isTouch){//isTouch为true，代表正在进行拖拽，就不执行重力感应；
+			return;
+		}
+		var nowTime = Date.now();
+		var x = e.beta;
+		var y = e.gamma;
+		var z = e.alpha;
+		var degX = x;//x轴旋转角度等于beta；
+		var degY = (y + z)%360;//y轴旋转角度等于y+z，但可能超出360度，对360取模；
+		if(nowTime - lastDeviceTime > 100){
+			//第一次进入，之前没有触发重力感应；
+			startDeviceDeg = {x:degX,y:degY};
+			startBgDeg = {x:css(bg,"rotateX"),y:css(bg,"rotateY")};
+		} else {
+			//后续的连续触发
+			var dis = {x:startDeviceDeg.x - degX,y:startDeviceDeg.y - degY};
+			var nowDeg = {x:startBgDeg.x + dis.x,y: startBgDeg.y + dis.y};
+			console.log(nowDeg,dis);
+			if(nowDeg.x > 40){//限制范围；
+				nowDeg.x = 40;
+			} else if(nowDeg.x < -40){
+				nowDeg.x = -40;
+			}
+			css(bg,"rotateX",nowDeg.x);
+			css(bg,"rotateY",nowDeg.y);
+			//后续的连续触发
+		}	
+		lastDeviceTime = nowTime;	
+	});
+}
+</script>
+</body>
+</html>
